@@ -1,0 +1,37 @@
+name: eurostat_economic_monitor
+version: "1.0.0"
+config-version: 2
+
+profile: eurostat
+
+model-paths: ["models"]
+analysis-paths: ["analyses"]
+test-paths: ["tests"]
+seed-paths: ["seeds"]
+macro-paths: ["macros"]
+snapshot-paths: ["snapshots"]
+
+packages-install-path: "/tmp/dbt_packages"
+
+target-path: "target"
+clean-targets:
+  - "target"
+  - "dbt_packages"
+
+models:
+  eurostat_economic_monitor:
+    staging:
+      +materialized: view
+      +schema: staging
+    intermediate:
+      +materialized: table
+      +schema: intermediate
+    marts:
+      +materialized: table
+      +schema: "{{ env_var('BQ_PROCESSED_DATASET', 'eurostat_processed') }}"
+      +partition_by:
+        field: reference_date
+        data_type: date
+        granularity: year
+      +cluster_by:
+        - country_code

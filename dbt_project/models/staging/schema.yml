@@ -1,0 +1,42 @@
+version: 2
+
+models:
+  - name: stg_gdp
+    description: "Cleaned and typed GDP staging view"
+    columns:
+      - name: country_code
+        tests:
+          - not_null
+          - relationships:
+              to: source('eurostat_raw','gdp_annual')
+              field: country_code
+      - name: reference_year
+        tests: [not_null]
+      - name: gdp_meur
+        tests: [not_null]
+
+  - name: stg_unemployment
+    description: "Cleaned unemployment rates (total, all ages)"
+    columns:
+      - name: country_code
+        tests: [not_null]
+      - name: reference_year
+        tests: [not_null]
+      - name: unemployment_rate
+        tests: [not_null, {dbt_utils.accepted_range: {min_value: 0, max_value: 100}}]
+
+  - name: stg_energy
+    description: "Energy intensity of the economy (kg oil eq / 1000 EUR GDP)"
+    columns:
+      - name: country_code
+        tests: [not_null]
+      - name: reference_year
+        tests: [not_null]
+
+  - name: stg_inflation
+    description: "Annual average HICP inflation rate"
+    columns:
+      - name: country_code
+        tests: [not_null]
+      - name: reference_year
+        tests: [not_null]

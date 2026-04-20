@@ -1,0 +1,52 @@
+version: 2
+
+sources:
+  - name: eurostat_raw
+    database: "{{ env_var('GCP_PROJECT_ID') }}"
+    schema: eurostat_raw
+    description: "Raw Eurostat data ingested by the dlt pipeline"
+
+    tables:
+      - name: gdp_annual
+        description: "Annual GDP data — nama_10_gdp (CP_MEUR, B1GQ)"
+        columns:
+          - name: country_code
+            description: "ISO 3166-1 alpha-2 code (Eurostat conventions)"
+            tests: [not_null]
+          - name: year
+            tests: [not_null]
+          - name: value
+            description: "GDP in millions of EUR at current prices"
+
+      - name: unemployment_annual
+        description: "Annual unemployment rates — une_rt_a (PC_ACT, TOTAL, T)"
+        columns:
+          - name: country_code
+            tests: [not_null]
+          - name: year
+            tests: [not_null]
+          - name: value
+            description: "Unemployment rate as % of active population"
+
+      - name: energy_intensity
+        description: "Energy intensity of the economy — nrg_ind_ei (KGOE_TEUR)"
+        columns:
+          - name: country_code
+            tests: [not_null]
+          - name: year
+            tests: [not_null]
+          - name: value
+            description: "kg oil equivalent per 1000 EUR of GDP"
+
+      - name: inflation_annual
+        description: "HICP annual average inflation — prc_hicp_aind (RCH_A_AVG, CP00)"
+        columns:
+          - name: country_code
+            tests: [not_null]
+          - name: year
+            tests: [not_null]
+          - name: value
+            description: "Inflation rate (%)"
+
+      - name: anomaly_alerts
+        description: "Anomaly records written by the Redpanda consumer"

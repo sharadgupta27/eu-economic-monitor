@@ -1,0 +1,248 @@
+networks:
+  eurostat-net:
+    driver: bridge
+
+volumes:
+  redpanda-data:
+
+# =============================================================
+# SERVICES
+# =============================================================
+services:
+
+  # -----------------------------------------------------------
+  # REDPANDA — Kafka-compatible streaming broker
+  # -----------------------------------------------------------
+  redpanda:
+    image: redpandadata/redpanda:v23.3.11
+    container_name: eurostat-redpanda
+    networks: [eurostat-net]
+    volumes:
+      - redpanda-data:/var/lib/redpanda/data
+    command:
+      - redpanda
+      - start
+      - --kafka-addr internal://0.0.0.0:9092,external://0.0.0.0:19092
+      - --advertise-kafka-addr internal://redpanda:9092,external://localhost:19092
+      - --pandaproxy-addr internal://0.0.0.0:8082,external://0.0.0.0:18082
+      - --advertise-pandaproxy-addr internal://redpanda:8082,external://localhost:18082
+      - --schema-registry-addr internal://0.0.0.0:8081,external://0.0.0.0:18081
+      - --rpc-addr redpanda:33145
+      - --advertise-rpc-addr redpanda:33145
+      - --mode dev-container
+      - --smp 1
+      - --default-log-level warn
+    ports:
+      - "19092:19092"   # External Kafka API
+      - "18081:18081"   # Schema Registry
+      - "18082:18082"   # REST Proxy
+    healthcheck:
+      test: ["CMD-SHELL", "rpk cluster health | grep -E 'Healthy:.+true' || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+  # -----------------------------------------------------------
+  # REDPANDA CONSOLE — Web UI for topic inspection
+  # -----------------------------------------------------------
+  redpanda-console:
+    image: redpandadata/console:v2.4.3
+    container_name: eurostat-redpanda-console
+    networks: [eurostat-net]
+    depends_on:
+      redpanda:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+    environment:
+      KAFKA_BROKERS: redpanda:9092
+      KAFKA_SCHEMAREGISTRY_ENABLED: "true"
+      KAFKA_SCHEMAREGISTRY_URLS: "http://redpanda:8081"
+
+  # -----------------------------------------------------------
+  # DLT INGESTION — Pull Eurostat data into BigQuery
+  # Run on-demand: make ingest
+  # -----------------------------------------------------------
+  dlt-ingestion:
+    build:
+      context: ./ingestion
+      dockerfile: Dockerfile
+    container_name: eurostat-dlt-ingestion
+    networks: [eurostat-net]
+    volumes:
+      - ./credentials:/credentials:ro
+    environment:
+      GOOGLE_APPLICATION_CREDENTIALS: /credentials/service-account.json
+      GCP_PROJECT_ID: ${GCP_PROJECT_ID}
+      BQ_RAW_DATASET: ${BQ_RAW_DATASET:-eurostat_raw}
+      GCS_BUCKET_NAME: ${GCS_BUCKET_NAME}
+      EUROSTAT_COUNTRIES: ${EUROSTAT_COUNTRIES:-DE,FR,IT,ES,PL,NL,BE,SE,AT,PT,FI,IE,CZ,RO,HU,DK,EL,SK}
+      EUROSTAT_START_YEAR: ${EUROSTAT_START_YEAR:-2000}
+      EUROSTAT_END_YEAR: ${EUROSTAT_END_YEAR:-2023}
+      REDPANDA_BROKERS: redpanda:9092
+      KAFKA_TOPIC_INGESTION: ${KAFKA_TOPIC_INGESTION:-eurostat.ingestion.completed}
+      DESTINATION__BIGQUERY__LOCATION: EU
+    depends_on:
+      redpanda:
+        condition: service_healthy
+    profiles: [pipeline]
+    command: python eurostat_pipeline.py
+
+  # -----------------------------------------------------------
+  # REDPANDA CONSUMER — Anomaly detection (long-running)
+  # -----------------------------------------------------------
+  redpanda-consumer:
+    build:
+      context: ./ingestion
+      dockerfile: Dockerfile
+    container_name: eurostat-consumer
+    networks: [eurostat-net]
+    volumes:
+      - ./credentials:/credentials:ro
+    environment:
+      GOOGLE_APPLICATION_CREDENTIALS: /credentials/service-account.json
+      GCP_PROJECT_ID: ${GCP_PROJECT_ID}
+      BQ_RAW_DATASET: ${BQ_RAW_DATASET:-eurostat_raw}
+      REDPANDA_BROKERS: redpanda:9092
+      KAFKA_TOPIC_INGESTION: ${KAFKA_TOPIC_INGESTION:-eurostat.ingestion.completed}
+      KAFKA_TOPIC_ANOMALIES: ${KAFKA_TOPIC_ANOMALIES:-eurostat.anomalies}
+    restart: unless-stopped
+    depends_on:
+      redpanda:
+        condition: service_healthy
+    command: python redpanda_consumer.py
+
+  # -----------------------------------------------------------
+  # APACHE SPARK — Batch processing job
+  # Run on-demand: make spark-batch
+  # -----------------------------------------------------------
+  spark-batch:
+    build:
+      context: ./spark
+      dockerfile: Dockerfile
+    container_name: eurostat-spark-batch
+    networks: [eurostat-net]
+    volumes:
+      - ./credentials:/credentials:ro
+    environment:
+      GOOGLE_APPLICATION_CREDENTIALS: /credentials/service-account.json
+      GCP_PROJECT_ID: ${GCP_PROJECT_ID}
+      BQ_RAW_DATASET: ${BQ_RAW_DATASET:-eurostat_raw}
+      BQ_PROCESSED_DATASET: ${BQ_PROCESSED_DATASET:-eurostat_processed}
+      GCS_BUCKET_NAME: ${GCS_BUCKET_NAME}
+    profiles: [pipeline]
+    command: >
+      /opt/spark/bin/spark-submit
+      --packages com.google.cloud.spark:spark-bigquery-with-dependencies_2.12:0.34.0
+      --conf spark.jars.ivy=/tmp/.ivy2
+      --conf spark.hadoop.google.cloud.auth.service.account.enable=true
+      --conf spark.hadoop.google.cloud.auth.service.account.json.keyfile=/credentials/service-account.json
+      /app/batch_job.py
+
+  # -----------------------------------------------------------
+  # FLINK JOBMANAGER — Streaming cluster manager (Flink Web UI :8081)
+  # -----------------------------------------------------------
+  flink-jobmanager:
+    build:
+      context: ./flink
+      dockerfile: Dockerfile.flink
+    image: eurostat-pyflink
+    container_name: eurostat-flink-jobmanager
+    networks: [eurostat-net]
+    ports:
+      - "8081:8081"
+    volumes:
+      - ./flink:/opt/flink/usrlib
+      - ./credentials:/credentials:ro
+    environment:
+      FLINK_PROPERTIES: |
+        jobmanager.rpc.address: flink-jobmanager
+        jobmanager.memory.process.size: 1600m
+      GOOGLE_APPLICATION_CREDENTIALS: /credentials/service-account.json
+      GCP_PROJECT_ID: ${GCP_PROJECT_ID}
+      BQ_RAW_DATASET: ${BQ_RAW_DATASET:-eurostat_raw}
+      REDPANDA_BROKERS: redpanda:9092
+      KAFKA_TOPIC_ANOMALIES: ${KAFKA_TOPIC_ANOMALIES:-eurostat.anomalies}
+      FLINK_CONSUMER_GROUP: flink-eurostat-streaming
+    command: jobmanager
+    depends_on:
+      redpanda:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8081/overview || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+
+  # -----------------------------------------------------------
+  # FLINK TASKMANAGER — Executes streaming operators
+  # -----------------------------------------------------------
+  flink-taskmanager:
+    image: eurostat-pyflink
+    pull_policy: never
+    container_name: eurostat-flink-taskmanager
+    networks: [eurostat-net]
+    volumes:
+      - ./flink:/opt/flink/usrlib
+      - ./credentials:/credentials:ro
+    environment:
+      FLINK_PROPERTIES: |
+        jobmanager.rpc.address: flink-jobmanager
+        taskmanager.memory.process.size: 1728m
+        taskmanager.numberOfTaskSlots: 4
+        parallelism.default: 1
+      GOOGLE_APPLICATION_CREDENTIALS: /credentials/service-account.json
+      GCP_PROJECT_ID: ${GCP_PROJECT_ID}
+      BQ_RAW_DATASET: ${BQ_RAW_DATASET:-eurostat_raw}
+      REDPANDA_BROKERS: redpanda:9092
+      KAFKA_TOPIC_ANOMALIES: ${KAFKA_TOPIC_ANOMALIES:-eurostat.anomalies}
+      FLINK_CONSUMER_GROUP: flink-eurostat-streaming
+    command: taskmanager
+    restart: unless-stopped
+    depends_on:
+      flink-jobmanager:
+        condition: service_healthy
+
+  # -----------------------------------------------------------
+  # DBT — Transform raw tables into analytics models
+  # Run on-demand: make dbt-run
+  # -----------------------------------------------------------
+  dbt:
+    build:
+      context: ./dbt_project
+      dockerfile: Dockerfile
+    container_name: eurostat-dbt
+    networks: [eurostat-net]
+    volumes:
+      - ./credentials:/credentials:ro
+      - ./dbt_project:/dbt
+    environment:
+      GOOGLE_APPLICATION_CREDENTIALS: /credentials/service-account.json
+      GCP_PROJECT_ID: ${GCP_PROJECT_ID}
+      BQ_RAW_DATASET: ${BQ_RAW_DATASET:-eurostat_raw}
+      BQ_PROCESSED_DATASET: ${BQ_PROCESSED_DATASET:-eurostat_processed}
+    profiles: [pipeline]
+    command: sh -c "dbt deps && dbt run --profiles-dir /dbt && dbt test --profiles-dir /dbt"
+
+  # -----------------------------------------------------------
+  # STREAMLIT DASHBOARD — Beautiful analytics UI
+  # -----------------------------------------------------------
+  dashboard:
+    build:
+      context: ./dashboard
+      dockerfile: Dockerfile
+    container_name: eurostat-dashboard
+    networks: [eurostat-net]
+    volumes:
+      - ./credentials:/credentials:ro
+    ports:
+      - "8501:8501"
+    environment:
+      GOOGLE_APPLICATION_CREDENTIALS: /credentials/service-account.json
+      GCP_PROJECT_ID: ${GCP_PROJECT_ID}
+      BQ_PROCESSED_DATASET: ${BQ_PROCESSED_DATASET:-eurostat_processed}
+      USE_MOCK_DATA: ${USE_MOCK_DATA:-false}
+    restart: unless-stopped
+    command: streamlit run app.py --server.port 8501 --server.address 0.0.0.0 --server.headless true

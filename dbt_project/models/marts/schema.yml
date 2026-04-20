@@ -1,0 +1,42 @@
+version: 2
+
+models:
+  - name: mart_gdp_trends
+    description: "GDP values and YoY growth by country and year (partitioned by date)"
+    columns:
+      - name: country_code
+        tests: [not_null]
+      - name: reference_year
+        tests: [not_null]
+      - name: gdp_beur
+        tests: [not_null]
+
+  - name: mart_unemployment_comparison
+    description: "Annual unemployment rates and YoY change per country"
+    columns:
+      - name: country_code
+        tests: [not_null]
+      - name: reference_year
+        tests: [not_null]
+      - name: unemployment_rate
+        tests: [{dbt_utils.accepted_range: {min_value: 0, max_value: 100}}]
+
+  - name: mart_energy_intensity
+    description: "Energy intensity and improvement rate per country/year"
+    columns:
+      - name: country_code
+        tests: [not_null]
+      - name: reference_year
+        tests: [not_null]
+
+  - name: mart_composite_economic_index
+    description: "Normalised 0–100 composite score per country/year"
+    columns:
+      - name: composite_score
+        tests: [{dbt_utils.accepted_range: {min_value: 0, max_value: 100}}]
+
+  - name: mart_country_latest
+    description: "Most-recent-year snapshot per country — used for KPI cards and map"
+    columns:
+      - name: country_code
+        tests: [not_null, unique]
