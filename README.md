@@ -1,4 +1,4 @@
-# 🇪🇺 EU Economic Monitor
+# EU Economic Monitor
 ### Data Engineering Zoomcamp - Final Project
 
 A **production-grade data engineering pipeline** that ingests European economic statistics from Eurostat, processes them through a multi-layer transformation stack, detects anomalies via a Kafka-compatible stream, and visualises everything in a Streamlit dashboard.
