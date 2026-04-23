@@ -1,10 +1,10 @@
 # 🇪🇺 EU Economic Monitor
-### Data Engineering Zoomcamp — Final Project
+### Data Engineering Zoomcamp - Final Project
 
 A **production-grade data engineering pipeline** that ingests European economic statistics from Eurostat, processes them through a multi-layer transformation stack, detects anomalies via a Kafka-compatible stream, and visualises everything in a Streamlit dashboard.
 
 > **Reproduction time:** ~30 min for GCP setup + ~20 min for first pipeline run.  
-> Everything runs in Docker — no local Python environments needed beyond Docker Desktop and Terraform.
+> Everything runs in Docker - no local Python environments needed beyond Docker Desktop and Terraform.
 
 ---
 
@@ -12,20 +12,20 @@ A **production-grade data engineering pipeline** that ingests European economic 
 
 1. [Architecture](#architecture)
 2. [Prerequisites](#prerequisites)
-3. [Step 1 — Clone the repository](#step-1--clone-the-repository)
-4. [Step 2 — Create a GCP project](#step-2--create-a-gcp-project)
-5. [Step 3 — Enable GCP APIs](#step-3--enable-gcp-apis)
-6. [Step 4 — Create the bootstrap service account](#step-4--create-the-bootstrap-service-account)
-7. [Step 5 — Configure environment variables](#step-5--configure-environment-variables)
-8. [Step 6 — Provision GCP infrastructure with Terraform](#step-6--provision-gcp-infrastructure-with-terraform)
-9. [Step 7 — Build Docker images](#step-7--build-docker-images)
-10. [Step 8 — Start long-running services](#step-8--start-long-running-services)
-11. [Step 9 — Create Redpanda topics](#step-9--create-redpanda-topics)
-12. [Step 10 — Run the data pipeline](#step-10--run-the-data-pipeline)
-13. [Step 11 — Open the dashboard](#step-11--open-the-dashboard)
-14. [Optional — PyFlink streaming job](#optional--pyflink-streaming-job)
+3. [Step 1 - Clone the repository](#step-1--clone-the-repository)
+4. [Step 2 - Create a GCP project](#step-2--create-a-gcp-project)
+5. [Step 3 - Enable GCP APIs](#step-3--enable-gcp-apis)
+6. [Step 4 - Create the bootstrap service account](#step-4--create-the-bootstrap-service-account)
+7. [Step 5 - Configure environment variables](#step-5--configure-environment-variables)
+8. [Step 6 - Provision GCP infrastructure with Terraform](#step-6--provision-gcp-infrastructure-with-terraform)
+9. [Step 7 - Build Docker images](#step-7--build-docker-images)
+10. [Step 8 - Start long-running services](#step-8--start-long-running-services)
+11. [Step 9 - Create Redpanda topics](#step-9--create-redpanda-topics)
+12. [Step 10 - Run the data pipeline](#step-10--run-the-data-pipeline)
+13. [Step 11 - Open the dashboard](#step-11--open-the-dashboard)
+14. [Optional - PyFlink streaming job](#optional--pyflink-streaming-job)
 15. [Tear-down](#tear-down)
-16. [Windows — one-click batch scripts](#windows--one-click-batch-scripts)
+16. [Windows - one-click batch scripts](#windows--one-click-batch-scripts)
 17. [Repository structure](#repository-structure)
 18. [Data sources](#data-sources)
 19. [BigQuery schema](#bigquery-schema)
@@ -89,7 +89,7 @@ A **production-grade data engineering pipeline** that ingests European economic 
 
 | Layer | Technology | Version |
 |---|---|---|
-| Cloud platform | GCP (BigQuery EU, GCS) | — |
+| Cloud platform | GCP (BigQuery EU, GCS) | - |
 | Infrastructure-as-Code | Terraform | ≥ 1.5 |
 | Batch ingestion | dlt + eurostat library | 0.4.x |
 | Stream broker | Redpanda (Kafka-compatible) | v23.3 |
@@ -97,7 +97,7 @@ A **production-grade data engineering pipeline** that ingests European economic 
 | Stream processing | Apache Flink (PyFlink) | 1.17.x |
 | Transformations | dbt-bigquery | 1.7.x |
 | Dashboard | Streamlit + Plotly | 1.33 / 5.22 |
-| Containerisation | Docker + Docker Compose v2 | — |
+| Containerisation | Docker + Docker Compose v2 | - |
 
 ---
 
@@ -111,7 +111,7 @@ Install the following on your local machine before you begin:
 | **Docker Compose** | v2 (bundled with Docker Desktop) | included with Docker Desktop |
 | **Terraform** | ≥ 1.5 | https://developer.hashicorp.com/terraform/downloads |
 | **Git** | Any | https://git-scm.com/downloads |
-| **make** | Any | Windows: install via [Chocolatey](https://chocolatey.org/) — `choco install make`; macOS: included; Linux: `apt install make` |
+| **make** | Any | Windows: install via [Chocolatey](https://chocolatey.org/) - `choco install make`; macOS: included; Linux: `apt install make` |
 | **GCP account** | With billing enabled | https://console.cloud.google.com |
 
 > On **Windows**, run all `make` commands from Git Bash or WSL, not PowerShell.
@@ -126,7 +126,7 @@ make --version
 
 ---
 
-## Step 1 — Clone the repository
+## Step 1 - Clone the repository
 
 ```bash
 git clone <repo-url>
@@ -135,17 +135,17 @@ cd final_project
 
 ---
 
-## Step 2 — Create a GCP project
+## Step 2 - Create a GCP project
 
 1. Go to https://console.cloud.google.com/projectcreate
-2. Create a new project (e.g. `eu-monitor-demo`). Note the **Project ID** exactly — it is used throughout.
+2. Create a new project (e.g. `eu-monitor-demo`). Note the **Project ID** exactly - it is used throughout.
 3. Make sure **billing is enabled** on the project: https://console.cloud.google.com/billing
 
 > The Project ID is lowercase, may contain hyphens, and is distinct from the display name.
 
 ---
 
-## Step 3 — Enable GCP APIs
+## Step 3 - Enable GCP APIs
 
 Open **Cloud Shell** (the `>_` terminal button in the top-right of the GCP Console) and run:
 
@@ -166,11 +166,11 @@ Wait ~60 seconds for the APIs to propagate before continuing.
 
 ---
 
-## Step 4 — Create the bootstrap service account
+## Step 4 - Create the bootstrap service account
 
 Terraform needs a **bootstrap service account** with sufficient permissions to create GCP resources on your behalf. Run all commands in **Cloud Shell**.
 
-### 4a — Create the service account
+### 4a - Create the service account
 
 ```bash
 gcloud iam service-accounts create eu-monitor-bootstrap \
@@ -178,7 +178,7 @@ gcloud iam service-accounts create eu-monitor-bootstrap \
   --project=YOUR_PROJECT_ID
 ```
 
-### 4b — Grant IAM roles
+### 4b - Grant IAM roles
 
 ```bash
 SA="eu-monitor-bootstrap@YOUR_PROJECT_ID.iam.gserviceaccount.com"
@@ -205,10 +205,10 @@ done
 | `bigquery.admin` | Create datasets and partitioned tables |
 | `resourcemanager.projectIamAdmin` | Bind IAM roles to the pipeline SA after creation |
 
-### 4c — Download the key file
+### 4c - Download the key file
 
 ```bash
-# Run this in Cloud Shell — it downloads the key as JSON
+# Run this in Cloud Shell - it downloads the key as JSON
 gcloud iam service-accounts keys create eu-monitor-bootstrap-key.json \
   --iam-account="eu-monitor-bootstrap@YOUR_PROJECT_ID.iam.gserviceaccount.com"
 ```
@@ -219,14 +219,14 @@ Download `eu-monitor-bootstrap-key.json` from Cloud Shell (click the three-dot m
 final_project/credentials/service-account.json
 ```
 
-> The `credentials/` directory is gitignored — this file is **never committed**.  
+> The `credentials/` directory is gitignored - this file is **never committed**.  
 > If the directory does not exist yet, create it: `mkdir credentials` (in the project root).
 
 ---
 
-## Step 5 — Configure environment variables
+## Step 5 - Configure environment variables
 
-### 5a — Create .env
+### 5a - Create .env
 
 ```bash
 # From the project root
@@ -235,16 +235,16 @@ make setup
 
 This copies `.env.example` to `.env` and creates the `credentials/` directory if absent.
 
-### 5b — Edit .env
+### 5b - Edit .env
 
 Open `.env` in any text editor and fill in these values:
 
 ```bash
-# ── Required — replace with your actual values ──────────────
+# ── Required - replace with your actual values ──────────────
 GCP_PROJECT_ID=your-project-id          # e.g. eu-monitor-demo
 GCS_BUCKET_NAME=eurostat-data-lake-your-project-id  # must be globally unique
 
-# ── Optional — defaults work for most setups ─────────────────
+# ── Optional - defaults work for most setups ─────────────────
 GCP_REGION=europe-west1
 GCP_ZONE=europe-west1-b
 BQ_RAW_DATASET=eurostat_raw
@@ -261,7 +261,7 @@ USE_MOCK_DATA=false
 
 > `GCS_BUCKET_NAME` must be **globally unique** across all of GCP. A safe convention: `eurostat-data-lake-<YOUR_PROJECT_ID>`.
 
-### 5c — Configure Terraform variables
+### 5c - Configure Terraform variables
 
 ```bash
 cd terraform
@@ -284,7 +284,7 @@ cd ..
 
 ---
 
-## Step 6 — Provision GCP infrastructure with Terraform
+## Step 6 - Provision GCP infrastructure with Terraform
 
 ```bash
 make terraform-init    # download provider plugins
@@ -300,11 +300,11 @@ Terraform creates:
 - BigQuery dataset `eurostat_processed` (EU location)
 - Service account `eurostat-pipeline-sa` with roles: `bigquery.dataEditor`, `bigquery.jobUser`, `storage.objectAdmin`
 
-> The pipeline containers use `credentials/service-account.json` (your bootstrap key) via a Docker volume mount — no additional key files are needed.
+> The pipeline containers use `credentials/service-account.json` (your bootstrap key) via a Docker volume mount - no additional key files are needed.
 
 ---
 
-## Step 7 — Build Docker images
+## Step 7 - Build Docker images
 
 ```bash
 make build
@@ -320,7 +320,7 @@ make build-clean
 
 ---
 
-## Step 8 — Start long-running services
+## Step 8 - Start long-running services
 
 ```bash
 make up
@@ -332,9 +332,9 @@ This starts the following services in the background:
 |---|---|---|
 | `redpanda` | Kafka-compatible stream broker | 19092 (ext), 9092 (int) |
 | `redpanda-console` | Web UI for inspecting topics/messages | http://localhost:8080 |
-| `redpanda-consumer` | Reads ingestion events, detects anomalies | — |
+| `redpanda-consumer` | Reads ingestion events, detects anomalies | - |
 | `flink-jobmanager` | Flink cluster job manager | http://localhost:8081 |
-| `flink-taskmanager` | Flink cluster task manager | — |
+| `flink-taskmanager` | Flink cluster task manager | - |
 | `dashboard` | Streamlit analytics dashboard | http://localhost:8501 |
 
 Wait for all services to become healthy before proceeding. You can monitor them:
@@ -348,7 +348,7 @@ Wait until you see `redpanda` report `kafka is ready` in the logs (usually 15–
 
 ---
 
-## Step 9 — Create Redpanda topics
+## Step 9 - Create Redpanda topics
 
 ```bash
 make create-topics
@@ -365,7 +365,7 @@ You can verify the topics were created at http://localhost:8080 (Redpanda Consol
 
 ---
 
-## Step 10 — Run the data pipeline
+## Step 10 - Run the data pipeline
 
 ```bash
 make pipeline
@@ -374,19 +374,19 @@ make pipeline
 This runs three steps in sequence:
 
 ```
-Step 1/3 — dlt Ingestion
+Step 1/3 - dlt Ingestion
   Downloads GDP, Unemployment, Energy Intensity, Inflation data from
   the Eurostat REST API for 18 EU countries (2000–2023).
   Writes to BigQuery: eurostat_raw.gdp_annual, unemployment_annual,
                       energy_intensity, inflation_annual
   Duration: ~5–10 min (first run, network dependent)
 
-Step 2/3 — Spark Batch Processing
+Step 2/3 - Spark Batch Processing
   Reads eurostat_raw → computes year-on-year deltas and z-scores.
   Writes enriched tables to BigQuery: eurostat_processed.
   Duration: ~3–5 min
 
-Step 3/3 — dbt Transformations
+Step 3/3 - dbt Transformations
   Runs dbt deps → dbt run → dbt test.
   Materialises 11 models (staging views → intermediate tables → mart tables).
   All 31 tests must pass.
@@ -403,7 +403,7 @@ make dbt-run        # dbt transformations + tests only
 
 ---
 
-## Step 11 — Open the dashboard
+## Step 11 - Open the dashboard
 
 ```bash
 make open-dashboard
@@ -424,7 +424,7 @@ The dashboard has five pages:
 
 ---
 
-## Optional — PyFlink streaming job
+## Optional - PyFlink streaming job
 
 After `make up` and `make create-topics`, you can submit the PyFlink streaming job to continuously process anomaly messages from Redpanda into BigQuery:
 
@@ -439,7 +439,7 @@ This submits `flink/streaming_job.py` to the running Flink cluster. The job:
 
 Monitor the job at http://localhost:8081 (Flink Web UI).
 
-> The Flink job is **optional** — the main dashboard does not depend on it. It provides real-time streaming analytics as an additional data flow.
+> The Flink job is **optional** - the main dashboard does not depend on it. It provides real-time streaming analytics as an additional data flow.
 
 ---
 
@@ -461,11 +461,11 @@ make terraform-destroy
 
 ---
 
-## Windows — one-click batch scripts
+## Windows - one-click batch scripts
 
 If you are on Windows and do not have `make` installed, two `.bat` scripts cover the full workflow as a double-click alternative.
 
-### `run_pipeline.bat` — full pipeline runner
+### `run_pipeline.bat` - full pipeline runner
 
 Double-click (or run from a Command Prompt in the project root):
 
@@ -478,18 +478,18 @@ What it does, in order:
 | Step | Action |
 |---|---|
 | Pre-flight | Verifies Docker, Docker Compose v2, `.env`, `credentials/service-account.json`, `terraform.tfvars` |
-| 1/7 | `terraform init` + `terraform apply` — provisions GCP (skipped automatically if Terraform is not installed) |
-| 2/7 | `docker compose build` — builds all project images |
-| 3/7 | `docker compose up -d` — starts Redpanda, Flink cluster, anomaly consumer, dashboard |
+| 1/7 | `terraform init` + `terraform apply` - provisions GCP (skipped automatically if Terraform is not installed) |
+| 2/7 | `docker compose build` - builds all project images |
+| 3/7 | `docker compose up -d` - starts Redpanda, Flink cluster, anomaly consumer, dashboard |
 | 4/7 | Creates the two Redpanda Kafka topics |
 | 5/7 | Runs the dlt ingestion container (Eurostat → BigQuery raw) |
 | 6/7 | Runs the Spark batch container (raw → processed) |
 | 7/7 | Runs the dbt container (staging → intermediate → marts) |
 | Done | Opens `http://localhost:8501` in your default browser |
 
-Each step exits with an error message if it fails — no silent failures.
+Each step exits with an error message if it fails - no silent failures.
 
-### `clean_project.bat` — teardown and cleanup
+### `clean_project.bat` - teardown and cleanup
 
 ```cmd
 clean_project.bat
@@ -499,9 +499,9 @@ Interactive menu with three levels:
 
 | Level | What is removed |
 |---|---|
-| **1 — Soft clean** | Stops containers, removes volumes and orphaned networks. Docker images and GCP resources are kept. |
-| **2 — Hard clean** | Everything in soft clean, plus all project Docker images and the Docker build cache are deleted. Next `run_pipeline.bat` will rebuild from scratch. |
-| **3 — Full reset** | Everything in hard clean, plus `terraform destroy` — **deletes all BigQuery datasets and GCS bucket**. Requires `YES` confirmation. |
+| **1 - Soft clean** | Stops containers, removes volumes and orphaned networks. Docker images and GCP resources are kept. |
+| **2 - Hard clean** | Everything in soft clean, plus all project Docker images and the Docker build cache are deleted. Next `run_pipeline.bat` will rebuild from scratch. |
+| **3 - Full reset** | Everything in hard clean, plus `terraform destroy` - **deletes all BigQuery datasets and GCS bucket**. Requires `YES` confirmation. |
 
 > **Tip:** After a soft clean you can immediately re-run `run_pipeline.bat` without rebuilding images. After a hard clean, images are rebuilt automatically on the next run.
 
@@ -511,7 +511,7 @@ Interactive menu with three levels:
 
 ```
 final_project/
-├── .env.example                  # Environment variable template — copy to .env
+├── .env.example                  # Environment variable template - copy to .env
 ├── .gitignore
 ├── docker-compose.yml            # All service definitions
 ├── Makefile                      # Developer commands (see Makefile Reference)
@@ -525,13 +525,13 @@ final_project/
 │   ├── outputs.tf                # Outputs: bucket name, SA email, dataset IDs
 │   └── terraform.tfvars.example  # Copy to terraform.tfvars and fill in values
 │
-├── credentials/                  # !! gitignored — place service-account.json here
+├── credentials/                  # !! gitignored - place service-account.json here
 │   └── service-account.json      # Bootstrap SA key (downloaded in Step 4c)
 │
 ├── ingestion/
 │   ├── Dockerfile
 │   ├── requirements.txt
-│   ├── eurostat_pipeline.py      # dlt pipeline — fetches 4 Eurostat datasets → BQ raw
+│   ├── eurostat_pipeline.py      # dlt pipeline - fetches 4 Eurostat datasets → BQ raw
 │   └── redpanda_consumer.py      # Reads ingestion events, detects anomalies, publishes alerts
 │
 ├── spark/
@@ -546,14 +546,14 @@ final_project/
 │
 ├── dbt_project/
 │   ├── Dockerfile
-│   ├── dbt_project.yml           # Project config — model paths, materialisation
+│   ├── dbt_project.yml           # Project config - model paths, materialisation
 │   ├── profiles.yml              # BigQuery connection profile
 │   ├── packages.yml              # dbt-utils dependency
 │   └── models/
 │       ├── sources.yml           # Declares eurostat_raw source tables
-│       ├── staging/              # stg_* views — cast and clean raw tables
-│       ├── intermediate/         # int_* tables — joins and window functions
-│       └── marts/                # mart_* partitioned tables — analytics-ready
+│       ├── staging/              # stg_* views - cast and clean raw tables
+│       ├── intermediate/         # int_* tables - joins and window functions
+│       └── marts/                # mart_* partitioned tables - analytics-ready
 │
 └── dashboard/
     ├── Dockerfile
@@ -579,10 +579,10 @@ final_project/
 
 | Dataset | Eurostat code | Description |
 |---|---|---|
-| GDP | `nama_10_gdp` | GDP and main aggregates — annual, current prices |
-| Unemployment | `une_rt_a` | Unemployment rate by sex and age — annual |
+| GDP | `nama_10_gdp` | GDP and main aggregates - annual, current prices |
+| Unemployment | `une_rt_a` | Unemployment rate by sex and age - annual |
 | Energy Intensity | `nrg_ind_ei` | Energy intensity of the economy (kgoe per 1000 EUR GDP) |
-| Inflation (HICP) | `prc_hicp_aind` | Harmonised Index of Consumer Prices — annual |
+| Inflation (HICP) | `prc_hicp_aind` | Harmonised Index of Consumer Prices - annual |
 
 **Countries (18):** AT, BE, CZ, DE, DK, EL, ES, FI, FR, HU, IE, IT, NL, PL, PT, RO, SE, SK  
 **Time range:** 2000 – 2023
@@ -593,7 +593,7 @@ Data is fetched via the [Eurostat REST API](https://ec.europa.eu/eurostat/web/js
 
 ## BigQuery schema
 
-### `eurostat_raw` dataset — raw ingestion layer
+### `eurostat_raw` dataset - raw ingestion layer
 
 All raw tables are:
 - Partitioned by `loaded_at DATE` (ingestion date)
@@ -607,7 +607,7 @@ All raw tables are:
 | `inflation_annual` | `country_code`, `year`, `hicp_value`, `unit`, `loaded_at` |
 | `anomaly_stream_summaries` | `country_code`, `dataset`, `anomaly_score`, `processed_at` |
 
-### `eurostat_processed` dataset — dbt marts
+### `eurostat_processed` dataset - dbt marts
 
 | Table | Partition | Cluster | Description |
 |---|---|---|---|
@@ -615,7 +615,7 @@ All raw tables are:
 | `mart_unemployment_comparison` | `reference_date` (year) | `country_code` | Unemployment rates + EU average |
 | `mart_energy_intensity` | `reference_date` (year) | `country_code` | Energy intensity + YoY delta |
 | `mart_composite_economic_index` | `reference_date` (year) | `country_code` | Composite score (0–100) |
-| `mart_country_latest` | — | `country_code` | Latest-year snapshot per country |
+| `mart_country_latest` | - | `country_code` | Latest-year snapshot per country |
 
 ### dbt lineage
 
@@ -642,8 +642,8 @@ $$\text{score}(x) = \frac{x - x_{\min}}{x_{\max} - x_{\min}} \times 100$$
 | Sub-score | Source | Direction |
 |---|---|---|
 | GDP Growth Score | YoY GDP growth % | Higher = better |
-| Unemployment Score | Unemployment rate | **Inverted** — lower rate = better |
-| Energy Score | Energy intensity (kgoe/1k€) | **Inverted** — lower intensity = better |
+| Unemployment Score | Unemployment rate | **Inverted** - lower rate = better |
+| Energy Score | Energy intensity (kgoe/1k€) | **Inverted** - lower intensity = better |
 
 $$\text{Composite} = \frac{\text{GDP Score} + \text{Unemp. Score} + \text{Energy Score}}{3}$$
 
@@ -689,7 +689,7 @@ make open-flink         # Open http://localhost:8081 (Flink Web UI)
 
 ## Troubleshooting
 
-### `make up` fails — port already in use
+### `make up` fails - port already in use
 
 ```
 Error: bind: address already in use
@@ -723,7 +723,7 @@ The Spark batch job must complete successfully before dbt can run. Run `make spa
 Not found: Dataset was not found in location EU
 ```
 
-Ensure `GCP_PROJECT_ID` in `.env` and `project_id` in `terraform.tfvars` are identical and match your actual GCP project. Terraform creates datasets in `EU` location — do not change this.
+Ensure `GCP_PROJECT_ID` in `.env` and `project_id` in `terraform.tfvars` are identical and match your actual GCP project. Terraform creates datasets in `EU` location - do not change this.
 
 ---
 
@@ -731,7 +731,7 @@ Ensure `GCP_PROJECT_ID` in `.env` and `project_id` in `terraform.tfvars` are ide
 
 1. Confirm `GCP_PROJECT_ID` and `BQ_PROCESSED_DATASET` are set correctly in `.env`.
 2. Confirm `credentials/service-account.json` exists and is valid.
-3. Confirm `make pipeline` completed without errors — check `docker logs eurostat-dbt`.
+3. Confirm `make pipeline` completed without errors - check `docker logs eurostat-dbt`.
 4. To test without BigQuery, set `USE_MOCK_DATA=true` in `.env` and restart the dashboard:
    ```bash
    docker compose restart dashboard
@@ -741,7 +741,7 @@ Ensure `GCP_PROJECT_ID` in `.env` and `project_id` in `terraform.tfvars` are ide
 
 ### Flink job fails to start
 
-Ensure `make up` has been running for at least 30 seconds so that `flink-taskmanager` is registered with `flink-jobmanager`. Check the Flink Web UI at http://localhost:8081 — you should see `1 TaskManager` registered before submitting the job.
+Ensure `make up` has been running for at least 30 seconds so that `flink-taskmanager` is registered with `flink-jobmanager`. Check the Flink Web UI at http://localhost:8081 - you should see `1 TaskManager` registered before submitting the job.
 
 ---
 
@@ -750,8 +750,8 @@ Ensure `make up` has been running for at least 30 seconds so that `flink-taskman
 You have three options:
 
 1. **Use the provided batch scripts** (no extra tools needed):
-   - `run_pipeline.bat` — runs the full pipeline end-to-end
-   - `clean_project.bat` — interactive teardown
+   - `run_pipeline.bat` - runs the full pipeline end-to-end
+   - `clean_project.bat` - interactive teardown
 
 2. Install `make` via Chocolatey:
    ```cmd
@@ -759,6 +759,10 @@ You have three options:
    ```
 
 3. Run all `make` commands from **Git Bash** or **WSL** where `make` is natively available.
+
+## Acknowledgements
+
+Thanks to the [DataTalks.Club](https://datatalks.club/) community for providing a structured learning path and covering a wide stack of data engineering tools through the [Data Engineering Zoomcamp](https://github.com/DataTalksClub/data-engineering-zoomcamp).
 
 ---
 
