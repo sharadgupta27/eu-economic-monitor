@@ -1,1 +1,13 @@
-...
+# Copy this file to terraform.tfvars and fill in your values
+project_id           = "your-gcp-project-id"
+region               = "europe-west1"
+zone                 = "europe-west1-b"
+gcs_bucket_name      = "eurostat-data-lake-your-project-id"
+bq_raw_dataset       = "eurostat_raw"
+bq_processed_dataset = "eurostat_processed"
+bq_location          = "EU"
+credentials_file     = "../credentials/service-account.json"
+
+# Optional: Only needed if running Terraform as a service account
+# that needs permission to impersonate the pipeline service account
+# terraform_executor_email = "your-terraform-sa@your-project.iam.gserviceaccount.com"
